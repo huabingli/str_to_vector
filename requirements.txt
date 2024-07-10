@@ -1,0 +1,9 @@
+fastapi~=0.111.0
+loguru~=0.7.2
+pydantic~=2.8.2
+pydantic_settings~=2.3.4
+starlette~=0.37.2
+numpy~=1.26.4
+torch~=2.3.1
+anyio~=4.4.0
+typer~=0.12.3
