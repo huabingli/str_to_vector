@@ -25,8 +25,8 @@ class Base(BaseSettings):
     base_dir: Path = Path(__file__).resolve().parent.parent
     log_level: str = 'INFO'
     log_colorize: bool = Field(True, description='是否打印彩色日志')
-    docs_url: bool | None | str = Field('/docs', description='是否开启swagger文档')
-    redoc_url: bool | None | str = Field(None, description='是否开启redoc文档')
+    docs_url: str | None | str = Field('/docs', description='是否开启swagger文档')
+    redoc_url: str | None | str = Field(None, description='是否开启redoc文档')
 
     @property
     def base_dir_str(self) -> str:
