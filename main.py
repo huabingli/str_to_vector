@@ -10,7 +10,7 @@ from core.middleware import add_middleware
 
 setup_logging()
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, redoc_url=settings.redoc_url, docs_url=settings.docs_url)
 add_middleware(app)
 exception_handler(app)
 app.include_router(router=router)
