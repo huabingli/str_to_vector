@@ -13,6 +13,7 @@ WORKDIR ${APP_PATH}
 
 EXPOSE 8000
 
+
 ENTRYPOINT ["python"]
 
 CMD ["/data/str_to_vector/main.py"]
