@@ -20,7 +20,6 @@ from utils.timer import AsyncTimer
 
 re_tag = re.compile(r'<.+?>')
 re_space = re.compile(r'\s+')
-# device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # 使用字典处理HTML转义字符
 html_escapes = {
@@ -44,35 +43,29 @@ def escape_chars(s):
     return s.strip()
 
 
-# async def escape_chars(s):
-#     return await to_thread.run_sync(_escape_chars, s)
-
-
 class GetM3eModel:
-    model: SentenceTransformer = None
-    device: str = None
+    _model: SentenceTransformer = None
+    _device: str = None
+    pool = None
 
     @classmethod
     def get_model(cls) -> SentenceTransformer:
-        if cls.model is None:
-            cls.model = SentenceTransformer(
+        if cls._model is None:
+            cls._device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            cls._model = SentenceTransformer(
                     settings.m3e.name_or_path,
-                    device=cls.get_device(),
+                    device=cls._device,
                     model_kwargs={'torch_dtype': torch.float32}
             )
-            logger.info(f"Model loaded from {cls.model}")
-        return cls.model
+            cls.pool = cls._model.start_multi_process_pool()
+            logger.info(f"Model loaded from {cls._model}")
+        return cls._model
 
     @classmethod
-    def get_device(cls) -> str:
-        if cls.device is None:
-            cls.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            logger.info(f'SentenceTransformer 模型使用: {cls.device}')
-        return cls.device
-
-    @classmethod
-    def start_model(cls):
-        cls.get_model()
+    def stop_multi_process_pool(cls):
+        if cls.pool is not None:
+            cls._model.stop_multi_process_pool(cls.pool)
+            cls.pool = None
 
 
 def np_float_to_str_to_float(s: np.float32) -> str:
@@ -82,7 +75,7 @@ def np_float_to_str_to_float(s: np.float32) -> str:
 @lru_cache(maxsize=200)
 def model_encode(article):
     article = escape_chars(article)
-    data: np.ndarray = GetM3eModel.get_model().encode([article], device=GetM3eModel.get_device(), precision='float32')
+    data: np.ndarray = GetM3eModel.get_model().encode([article], precision='float32')
     # data1 = data[0]
     # data2 = []
     # for i in data1:
@@ -101,14 +94,9 @@ async def embedding_one_article(article):
 def model_encode_batch(articles_content) -> list:
     # 获取模型
     model = GetM3eModel.get_model()
-    device = GetM3eModel.get_device()
 
-    # 使用 asyncio.to_thread() 在子线程中执行 model.encode
-    line_embedding = model.encode(articles_content, device=device)
-    # 将结果转换为列表
-    # line_embedding = line_embedding.tolist()
-    line_embedding_list = [[np_float_to_str_to_float(v) for v in i] for i in line_embedding]
-    return line_embedding_list
+    line_embedding = model.encode_multi_process(articles_content, precision='float32', pool=GetM3eModel.pool)
+    return [[np_float_to_str_to_float(v) for v in i] for i in line_embedding]
 
 
 async def escape_chars_to(article: AcquisitionVector2):

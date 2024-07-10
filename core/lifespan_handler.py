@@ -13,5 +13,6 @@ from utils.m3e import GetM3eModel
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    GetM3eModel.start_model()
+    GetM3eModel.get_model()
     yield
+    GetM3eModel.stop_multi_process_pool()
