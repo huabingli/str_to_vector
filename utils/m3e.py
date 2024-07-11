@@ -106,7 +106,6 @@ def model_encode_batch(articles_content) -> list:
     # 使用 asyncio.to_thread() 在子线程中执行 model.encode
     line_embedding = model.encode(articles_content, device=device)
     # 将结果转换为列表
-    # line_embedding = line_embedding.tolist()
     line_embedding_list = [[np_float_to_str_to_float(v) for v in i] for i in line_embedding]
     return line_embedding_list
 
@@ -137,9 +136,6 @@ async def embedding_one_article_batch(articles: list[AcquisitionVector2]) -> lis
     line_embedding = await asyncio.to_thread(model_encode_batch, articles_content)
     # 构建转换后的结果列表
     return [
-        AcquisitionVectorOutBatch.model_validate({
-            **article.model_dump(),
-            'vector': embedding,
-        })
+        AcquisitionVectorOutBatch(data_id=article.data_id, vector=embedding)
         for article, embedding in zip(articles, line_embedding)
     ]
