@@ -43,7 +43,7 @@ lock = threading.Lock()
 
 
 def stop_logging() -> None:
-    models = ['httpcore', 'httpx', 'apscheduler', 'elastic_transport', 'sqlalchemy']
+    models = ['httpcore', 'httpx', 'apscheduler', 'elastic_transport', 'sqlalchemy', 'watchfiles']
     for model in models:
         logger.disable(model)
 

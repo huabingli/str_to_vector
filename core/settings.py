@@ -5,7 +5,7 @@
 # @作者       :lihb
 # @说明       :
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,7 +23,7 @@ class Base(BaseSettings):
     model_config = SettingsConfigDict(env_nested_delimiter='__', env_file=None)
 
     base_dir: Path = Path(__file__).resolve().parent.parent
-    log_level: str = 'INFO'
+    log_level: Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] = 'DEBUG'
     log_colorize: bool = Field(True, description='是否打印彩色日志')
     docs_url: str | None | str = Field('/docs', description='是否开启swagger文档')
     redoc_url: str | None | str = Field(None, description='是否开启redoc文档')
