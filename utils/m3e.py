@@ -11,7 +11,6 @@ from functools import lru_cache
 
 import numpy as np
 import torch
-from anyio import to_thread
 from loguru import logger
 from sentence_transformers import SentenceTransformer
 
@@ -101,12 +100,12 @@ def model_encode(article):
     data: np.ndarray = GetM3eModel.get_model().encode([article], device=GetM3eModel.get_device(), precision='float32')
     logger.debug(f"转换vector 耗时: {(time.time() - start_time) :.5f}s ")
     # 将编码结果转换为字符串类型，再转换为float32类型，返回第一个元素
-    return data.astype(np.str_).astype(np.float32)[0]
+    return data.astype(np.str_)[0].tolist()
 
 
 @AsyncTimer(msg="转换vector")
 async def embedding_one_article(article):
-    embeddings = await to_thread.run_sync(model_encode, article)
+    embeddings = await asyncio.to_thread(model_encode, article)
     return embeddings
 
 
@@ -119,7 +118,7 @@ def model_encode_batch(articles_content) -> list:
     logger.debug(f"批量转换vector 数量: {len(articles_content)} 耗时: {(time.time() - start_time) :.5f}s")
     # 将结果转换为列表
     # line_embedding_list = [[np_float_to_str_to_float(v) for v in i] for i in line_embedding]
-    return line_embedding.astype(np.str_).astype(np.float32).tolist()
+    return line_embedding.astype(np.str_).tolist()
 
 
 async def escape_chars_to(article: AcquisitionVector2):
