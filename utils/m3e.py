@@ -6,6 +6,7 @@
 # @说明       :
 import asyncio
 import re
+import time
 from functools import lru_cache
 
 import numpy as np
@@ -81,13 +82,25 @@ def np_float_to_str_to_float(s: np.float32) -> str:
 
 @lru_cache(maxsize=200)
 def model_encode(article):
+    """
+        使用M3e模型对文章进行编码。
+
+        参数:
+            article (str): 需要被编码的文章。
+
+        返回:
+            np.float32: 文章的编码表示。
+
+        异常:
+            ValueError: 如果文章为空或格式不正确。
+            Exception: 如果模型编码过程中发生错误。
+    """
     article = escape_chars(article)
+    start_time = time.time()
+    # 获取模型实例并进行编码
     data: np.ndarray = GetM3eModel.get_model().encode([article], device=GetM3eModel.get_device(), precision='float32')
-    # data1 = data[0]
-    # data2 = []
-    # for i in data1:
-    #     data2.append(float(str(i)))
-    # data2 = np.around(data1, decimals=8).tolist()
+    logger.debug(f"转换vector 耗时: {(time.time() - start_time) :.5f}s ")
+    # 将编码结果转换为字符串类型，再转换为float32类型，返回第一个元素
     return data.astype(np.str_).astype(np.float32)[0]
 
 
@@ -101,12 +114,12 @@ def model_encode_batch(articles_content) -> list:
     # 获取模型
     model = GetM3eModel.get_model()
     device = GetM3eModel.get_device()
-
-    # 使用 asyncio.to_thread() 在子线程中执行 model.encode
-    line_embedding = model.encode(articles_content, device=device, precision='float32').astype(np.str_).astype(np.float32)
+    start_time = time.time()
+    line_embedding = model.encode(articles_content, device=device, precision='float32')
+    logger.debug(f"批量转换vector 数量: {len(articles_content)} 耗时: {(time.time() - start_time) :.5f}s")
     # 将结果转换为列表
     # line_embedding_list = [[np_float_to_str_to_float(v) for v in i] for i in line_embedding]
-    return line_embedding.tolist()
+    return line_embedding.astype(np.str_).astype(np.float32).tolist()
 
 
 async def escape_chars_to(article: AcquisitionVector2):
@@ -122,6 +135,7 @@ async def escape_chars_to(article: AcquisitionVector2):
 async def embedding_one_article_batch(articles: list[AcquisitionVector2]) -> list[AcquisitionVectorOutBatch]:
     """
     文章列表转vector批量
+
     :param articles: 传入文章列表
     :return: 返回转化后的vector列表
     """
