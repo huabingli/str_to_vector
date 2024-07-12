@@ -87,9 +87,8 @@ def model_encode(article):
     # data2 = []
     # for i in data1:
     #     data2.append(float(str(i)))
-    data2 = [np_float_to_str_to_float(i) for i in data[0]]
     # data2 = np.around(data1, decimals=8).tolist()
-    return data2
+    return data.astype(np.str_).astype(np.float32)[0]
 
 
 @AsyncTimer(msg="转换vector")
@@ -104,10 +103,10 @@ def model_encode_batch(articles_content) -> list:
     device = GetM3eModel.get_device()
 
     # 使用 asyncio.to_thread() 在子线程中执行 model.encode
-    line_embedding = model.encode(articles_content, device=device)
+    line_embedding = model.encode(articles_content, device=device, precision='float32').astype(np.str_).astype(np.float32)
     # 将结果转换为列表
-    line_embedding_list = [[np_float_to_str_to_float(v) for v in i] for i in line_embedding]
-    return line_embedding_list
+    # line_embedding_list = [[np_float_to_str_to_float(v) for v in i] for i in line_embedding]
+    return line_embedding.tolist()
 
 
 async def escape_chars_to(article: AcquisitionVector2):
@@ -132,8 +131,7 @@ async def embedding_one_article_batch(articles: list[AcquisitionVector2]) -> lis
             tg.create_task(escape_chars_to(article))
     # vector_out_batch: list[AcquisitionVectorOutBatch] = []
     # 提取文章内容进行批量转换
-    articles_content = [article.article for article in articles]
-    line_embedding = await asyncio.to_thread(model_encode_batch, articles_content)
+    line_embedding = await asyncio.to_thread(model_encode_batch, [article.article for article in articles])
     # 构建转换后的结果列表
     return [
         AcquisitionVectorOutBatch(data_id=article.data_id, vector=embedding)
