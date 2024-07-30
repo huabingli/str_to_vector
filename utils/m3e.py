@@ -79,7 +79,7 @@ def np_float_to_str_to_float(s: np.float32) -> str:
     return str(s)
 
 
-@lru_cache(maxsize=200)
+@lru_cache(maxsize=5120)
 def model_encode(article):
     """
         使用M3e模型对文章进行编码。
