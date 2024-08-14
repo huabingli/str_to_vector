@@ -16,9 +16,9 @@ from utils.m3e import GetM3eModel
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     GetM3eModel.start_model()
-    jieba.initialize()  # 手动初始化（可选）
     if os.name != 'nt':
         jieba.enable_parallel(4)
+    jieba.initialize()  # 手动初始化（可选）
     yield
     if os.name != 'nt':
         jieba.disable_parallel()
