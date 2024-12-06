@@ -17,9 +17,9 @@ router = APIRouter(prefix='/similarity_calculation', tags=['相似题计算'])
         '/cosine_similarity',
         summary='余弦相似度计算',
         response_model_exclude_none=True,
-        response_model=R[dict[str, float | int]]
+        response_model=R[dict[str, str]]
 )
-async def async_cosine_similarity(question_score_vos_req: QuestionScoreVOsReq) -> R[dict[str, float | int]]:
+async def async_cosine_similarity(question_score_vos_req: QuestionScoreVOsReq) -> R[dict[str, str]]:
     """
     余弦相似度计算
     :param question_score_vos_req: 文章相似度计算请求
@@ -39,7 +39,7 @@ async def async_cosine_similarity(question_score_vos_req: QuestionScoreVOsReq) -
             s_id, score = await task
             logger.info(f'异步任务执行成功: {s_id}, {score}, {question_score_vos_req.similarity}')
             if score > question_score_vos_req.similarity:
-                data[str(s_id)] = score
+                data[str(s_id)] = str(score)
         except Exception as e:
             logger.error(f'异步任务执行失败: {e}')
             raise AiChatException(f'处理查询时发生错误: {e}')
