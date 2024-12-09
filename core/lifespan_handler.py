@@ -11,11 +11,13 @@ import jieba
 from fastapi import FastAPI
 
 from utils.m3e import GetM3eModel
+from utils.openai import GetOpenaiClipModel
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     GetM3eModel.start_model()
+    GetOpenaiClipModel.initialize_model()
     if os.name != 'nt':
         jieba.enable_parallel(4)
     jieba.initialize()  # 手动初始化（可选）
