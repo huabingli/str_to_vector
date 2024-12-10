@@ -11,7 +11,7 @@ from transformers.modeling_utils import SpecificPreTrainedModelType
 from core.config import settings
 from core.exceptions import AiChatException
 from models.image_vector import ImageSimilarityBatch, ImageSimilarityOutBatch, Similarity
-from utils.timer import Timer
+from utils.timer import AsyncTimer, Timer
 
 
 # https://huggingface.co/openai/clip-vit-base-patch32?library=transformers
@@ -45,11 +45,16 @@ class GetOpenaiClipModel:
     @Timer("图片加载")
     def pull_images(image_url: str):
         try:
-            if not image_url.startswith(("http://", "https://")):
-                raise ValueError("无效的图片 URL，必须以 http:// 或 https:// 开头。")
-            response = requests.get(image_url, stream=True)
-            response.raise_for_status()
-            return Image.open(response.raw)
+            if image_url.startswith(("http://", "https://")):
+                # raise ValueError("无效的图片 URL，必须以 http:// 或 https:// 开头。")
+                response = requests.get(image_url, stream=True)
+                response.raise_for_status()
+                image_data = response.raw
+            else:
+                image_data = image_url
+                # with open(image_url, 'rb', encoding="UTF-8") as f:
+                #     image_data = f.read()
+            return Image.open(image_data)
         except Exception as e:
             raise AiChatException(f'图片加载失败: {e}')
 
@@ -89,38 +94,49 @@ def image_cosine_similarity(vector: list[float], vector2: list[float]):
     return similarity_score
 
 
+@AsyncTimer("图片相似度计算")
 async def async_image_calculate_cosine_similarity(images: ImageSimilarityBatch) -> ImageSimilarityOutBatch:
     """ 异步计算两张图片的余弦相似度。
 
     :param images: 图片url
     :return: 相似度结果
     """
-    batch: dict[str, asyncio.Task] = {}
+    batch: dict[str, dict[str, Similarity | asyncio.Task | list[float]]] = {}
 
     # 获取所有图片的嵌入向量任务
     async with asyncio.TaskGroup() as tg:
         base_vector_task = tg.create_task(async_get_image_embedding(images.image_url))
         for image in images.batch:
-            batch[image.image_url] = tg.create_task(async_get_image_embedding(image.image_url))
+            batch[image.aid] = {
+                'task': tg.create_task(async_get_image_embedding(image.image_url)),
+                'similarity': image
+            }
 
     # 获取嵌入向量的结果
     base_vector = await base_vector_task
-    embedding_results = {url: await task for url, task in batch.items()}
+    embedding_results = {aid: await task['task'] for aid, task in batch.items()}
 
     # 计算相似度
     similarity_results = {}
     async with asyncio.TaskGroup() as tg:
-        for image_url, vector in embedding_results.items():
-            similarity_results[image_url] = tg.create_task(
+        for aid, vector in embedding_results.items():
+            logger.info(f"计算图片相似度任务: {aid}")
+            similarity_results[aid] = tg.create_task(
                     asyncio.to_thread(image_cosine_similarity, base_vector, vector)
             )
+    similarity_list: list[Similarity] = []
+    for aid, task in similarity_results.items():
+        similarity = Similarity(
+                aid=aid,
+                image_bytes=batch[aid]['similarity'].image_bytes,
+                image_url=batch[aid]['similarity'].image_url,
+                similarity=await task
+        )
+        similarity_list.append(similarity)
+        logger.info(f"图片相似度计算完成: {similarity.aid}")
 
     # 构建输出结果
-    data = ImageSimilarityOutBatch(
-            similarity=
-            [Similarity(image_url=image_url, similarity=await task)
-             for image_url, task in similarity_results.items()]
-    )
+    data = ImageSimilarityOutBatch(similarity=similarity_list)
     return data
     # return await asyncio.to_thread(image_calculate_cosine_similarity, image_url, image_url2)
 

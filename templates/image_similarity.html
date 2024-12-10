@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片上传与相似度展示</title>
+    <style>
+        #previewLibrary, #previewTarget {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .thumbnail {
+            display: inline-block;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .thumbnail img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .thumbnail .similarity {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+<h1>图片上传与相似度展示</h1>
+<form id="uploadForm">
+    <h2>目标图片</h2>
+    <label for="targetInput">选择目标图片:</label>
+    <input type="file" id="targetInput" accept="image/*">
+    <div id="previewTarget"></div>
+
+    <h2>图片库</h2>
+    <label for="libraryInput">选择图片库:</label>
+    <input type="file" id="libraryInput" accept="image/*" multiple>
+    <div id="previewLibrary"></div>
+
+    <button type="submit">上传</button>
+</form>
+
+<script>
+    const targetInput = document.getElementById("targetInput");
+    const libraryInput = document.getElementById("libraryInput");
+    const previewTarget = document.getElementById("previewTarget");
+    const previewLibrary = document.getElementById("previewLibrary");
+    const uploadForm = document.getElementById("uploadForm");
+
+    let targetImage = null;  // 目标图片
+    let libraryBatch = [];   // 图片库数据
+
+    // 监听目标图片文件选择
+    targetInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                targetImage = {
+                    image_bytes: e.target.result.split(",")[1],  // Base64编码
+                    id: `target-${Date.now()}` // 唯一ID
+                };
+
+                // 显示目标图片缩略图
+                previewTarget.innerHTML = `<div class="thumbnail" data-id="${targetImage.id}">
+                        <img src="${e.target.result}" alt="Target Image">
+                        <div class="similarity">相似度: --</div>
+                    </div>`;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // 监听图片库文件选择
+    libraryInput.addEventListener("change", (event) => {
+        const files = event.target.files;
+
+        // 清空之前的预览
+        previewLibrary.innerHTML = "";
+        libraryBatch = [];
+
+        Array.from(files).forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imageId = `library-${Date.now()}-${index}`; // 唯一ID
+                libraryBatch.push({
+                    image_bytes: e.target.result.split(",")[1], // Base64编码
+                    id: imageId
+                });
+
+                // 显示图片库缩略图
+                const thumbnail = document.createElement("div");
+                thumbnail.className = "thumbnail";
+                thumbnail.dataset.id = imageId;
+
+                thumbnail.innerHTML = `
+                        <img src="${e.target.result}" alt="Library Image">
+                        <div class="similarity" data-similarity="0">相似度: --</div>
+                    `;
+                previewLibrary.appendChild(thumbnail);
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+
+    // 提交表单
+    uploadForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        if (!targetImage || libraryBatch.length === 0) {
+            alert("请同时选择目标图片和图片库！");
+            return;
+        }
+
+        // 构造上传数据
+        const payload = {
+            image_bytes: targetImage.image_bytes,
+            batch: libraryBatch
+        };
+
+        try {
+            const response = await fetch("{{ base_url }}api/v1/image_vector/image_similarity/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log("上传成功:", result);
+                displaySimilarity(result.data.similarity);
+            } else {
+                alert("上传失败！");
+            }
+        } catch (error) {
+            console.error("上传错误:", error);
+        }
+    });
+
+    // 显示相似度
+    function displaySimilarity(similarities) {
+        similarities.forEach((item) => {
+            console.log("相似度:", item);
+            const thumbnail = document.querySelector(`.thumbnail[data-id="${item.id}"]`);
+            if (thumbnail) {
+                const similarityDiv = thumbnail.querySelector(".similarity");
+                similarityDiv.textContent = `相似度: ${(item.similarity * 100).toFixed(2)}%`;
+            }
+
+            if (targetImage.id === item.id) {
+                const targetSimilarityDiv = previewTarget.querySelector(".similarity");
+                targetSimilarityDiv.textContent = `相似度: ${(item.similarity * 100).toFixed(2)}%`;
+            }
+        });
+    }
+
+    // 点击图片放大功能
+    document.body.addEventListener("click", (event) => {
+        if (event.target.tagName === "IMG") {
+            const imgSrc = event.target.src;
+            const overlay = document.createElement("div");
+            overlay.style.position = "fixed";
+            overlay.style.top = "0";
+            overlay.style.left = "0";
+            overlay.style.width = "100%";
+            overlay.style.height = "100%";
+            overlay.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+            overlay.style.display = "flex";
+            overlay.style.alignItems = "center";
+            overlay.style.justifyContent = "center";
+            overlay.style.zIndex = "1000";
+
+            const largeImg = document.createElement("img");
+            largeImg.src = imgSrc;
+            largeImg.style.maxWidth = "90%";
+            largeImg.style.maxHeight = "90%";
+            largeImg.style.border = "5px solid white";
+
+            overlay.appendChild(largeImg);
+            document.body.appendChild(overlay);
+
+            overlay.addEventListener("click", () => {
+                document.body.removeChild(overlay);
+            });
+        }
+    });
+
+    // 支持截图粘贴功能到图片库
+    document.addEventListener("paste", (event) => {
+        const items = event.clipboardData.items;
+
+        for (let item of items) {
+            if (item.type.startsWith("image/")) {
+                const file = item.getAsFile();
+                const reader = new FileReader();
+
+                reader.onload = (e) => {
+                    const imgSrc = e.target.result;
+                    const imageId = `pasted-${Date.now()}`;
+
+                    // 将粘贴的图片添加到图片库数据
+                    libraryBatch.push({
+                        image_bytes: imgSrc.split(",")[1], // Base64编码
+                        id: imageId
+                    });
+
+                    // 显示粘贴的图片在图片库中
+                    const thumbnail = document.createElement("div");
+                    thumbnail.className = "thumbnail";
+                    thumbnail.dataset.id = imageId;
+
+                    thumbnail.innerHTML = `
+                    <img src="${imgSrc}" alt="Pasted Image">
+                    <div class="similarity" data-similarity="0">相似度: --</div>
+                `;
+                    previewLibrary.appendChild(thumbnail);
+                };
+
+                reader.readAsDataURL(file);
+            }
+        }
+    });
+
+
+</script>
+</body>
+</html>
