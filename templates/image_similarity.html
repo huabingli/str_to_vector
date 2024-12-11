@@ -281,6 +281,38 @@
             }
         });
     }
+
+    // 点击图片放大功能
+    document.body.addEventListener("click", (event) => {
+        if (event.target.tagName === "IMG") {
+            const imgSrc = event.target.src;
+            const overlay = document.createElement("div");
+            overlay.style.position = "fixed";
+            overlay.style.top = "0";
+            overlay.style.left = "0";
+            overlay.style.width = "100%";
+            overlay.style.height = "100%";
+            overlay.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+            overlay.style.display = "flex";
+            overlay.style.alignItems = "center";
+            overlay.style.justifyContent = "center";
+            overlay.style.zIndex = "1000";
+
+            const largeImg = document.createElement("img");
+            largeImg.src = imgSrc;
+            largeImg.style.maxWidth = "90%";
+            largeImg.style.maxHeight = "90%";
+            largeImg.style.border = "5px solid white";
+
+            overlay.appendChild(largeImg);
+            document.body.appendChild(overlay);
+
+            overlay.addEventListener("click", () => {
+                document.body.removeChild(overlay);
+            });
+        }
+    });
+
 </script>
 </body>
 </html>

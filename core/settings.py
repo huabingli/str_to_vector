@@ -21,7 +21,8 @@ class M3e(BaseModel):
 
 class OpenaiClip(BaseModel):
     name_or_path: Optional[str] = Field(
-            r'openai/clip-vit-large-patch14',
+            'openai/clip-vit-large-patch14',
+            # 'openai/clip-vit-base-patch16',
             alias='model_name_or_path',
             description="openai图像模型 https://huggingface.co/openai/clip-vit-large-patch14"
     )

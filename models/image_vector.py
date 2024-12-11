@@ -3,9 +3,11 @@ import time
 from pathlib import Path
 from typing import Self
 
-from pydantic import Base64Bytes, BaseModel, Field, model_validator, AliasChoices
+from pydantic import AliasChoices, Base64Bytes, BaseModel, Field, model_validator
 
-tmp = Path(r'D:\PycharmProjects\str_to_vector\tmp')
+from core.config import settings
+
+tmp = settings.base_dir.joinpath(r'tmp')
 
 
 class ImageVector(BaseModel):
@@ -13,6 +15,7 @@ class ImageVector(BaseModel):
                                   validation_alias=AliasChoices('id', 'aid'), serialization_alias='id')
     image_url: str | None = Field(None, description="图片url")
     image_bytes: Base64Bytes | None = Field(None, description="图片bytes")
+    __temp_file = None
 
     @model_validator(mode='after')
     def image_bytes_or_url(self) -> Self:
@@ -21,11 +24,19 @@ class ImageVector(BaseModel):
         if self.image_bytes is None and self.image_url:
             return self
         # decoded_image = base64.b64decode(self.image_bytes)
+        if not tmp.exists():
+            tmp.mkdir(parents=True, exist_ok=True)
         image_path = tmp.joinpath(f"{self.aid or str(random.random())}.jpg")
         with open(image_path, 'wb') as f:
             f.write(self.image_bytes)
         self.image_url = str(image_path)
         return self
+
+    def del_image_tmp(self):
+        if self.image_url:
+            image_path = Path(self.image_url)
+            if image_path.exists():
+                image_path.unlink()
 
 
 class ImageSimilarityBatch(ImageVector):

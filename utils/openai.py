@@ -5,7 +5,7 @@ import torch
 from PIL import Image
 from loguru import logger
 from sklearn.metrics.pairwise import cosine_similarity
-from transformers import AutoModelForZeroShotImageClassification, AutoProcessor
+from transformers import AutoModelForZeroShotImageClassification, AutoProcessor, BatchEncoding
 from transformers.modeling_utils import SpecificPreTrainedModelType
 
 from core.config import settings
@@ -20,12 +20,21 @@ from utils.timer import AsyncTimer, Timer
 class GetOpenaiClipModel:
     model = None
     processor = None
+    device = None
+
+    @classmethod
+    def get_device(cls) -> str:
+        if cls.device is None:
+            cls.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            logger.info(f'AutoModelForZeroShotImageClassification 模型使用: {cls.device}')
+        return cls.device
 
     @classmethod
     def initialize_model(cls):
         """
         初始化模型和处理器。
         """
+        cls.get_device()
         cls.get_model()
         cls.get_processor()
 
@@ -33,12 +42,13 @@ class GetOpenaiClipModel:
     def get_model(cls) -> SpecificPreTrainedModelType:
         if cls.model is None:
             cls.model = AutoModelForZeroShotImageClassification.from_pretrained(settings.openai_clip.name_or_path)
+            cls.model.to(cls.get_device())
         return cls.model
 
     @classmethod
     def get_processor(cls):
         if cls.processor is None:
-            cls.processor = AutoProcessor.from_pretrained(settings.openai_clip.name_or_path)
+            cls.processor = AutoProcessor.from_pretrained(settings.openai_clip.name_or_path, device=cls.get_device())
         return cls.processor
 
     @staticmethod
@@ -64,8 +74,13 @@ class GetOpenaiClipModel:
         image = cls.pull_images(image_url)
         processor = cls.get_processor()
         model = cls.get_model()
+
+        device = cls.get_device()
         with torch.no_grad():
-            inputs = processor(images=image, return_tensors="pt", padding=True)
+            inputs: BatchEncoding = processor(images=image, return_tensors="pt", padding=True)
+            for k, v in inputs.items():
+                inputs[k] = v.to(device)
+            # 将输入数据移动到设备
             image_features: torch.Tensor = model.get_image_features(inputs.pixel_values)
 
         # 转换为列表
