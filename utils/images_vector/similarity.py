@@ -11,11 +11,11 @@
 -------------------------------------------------
 """
 import asyncio
-from typing import cast
 
 from loguru import logger
 from sklearn.metrics.pairwise import cosine_similarity
 
+from core.exceptions import AiChatException
 from models.image_vector import ImageSimilarityBatch, ImageSimilarityOutBatch, Similarity
 from utils.timer import AsyncTimer
 from .embedding import async_get_image_embedding
@@ -47,40 +47,40 @@ async def async_image_calculate_cosine_similarity(
     :param model: 模型名称
     :return: 相似度结果
     """
-    batch: dict[str, dict[str, Similarity | asyncio.Task | list[float]]] = {}
 
-    # 获取所有图片的嵌入向量任务
-    async with asyncio.TaskGroup() as tg:
-        base_vector_task = tg.create_task(async_get_image_embedding(images.image_url, model))
-        for image in images.batch:
-            batch[image.aid] = {
-                'task': tg.create_task(async_get_image_embedding(image.image_url, model)),
-                'similarity': image
-            }
+    # 获取所有图片URL
+    all_image_urls = [images.image_url] + [image.image_url for image in images.batch]
 
-    # 获取嵌入向量的结果
-    base_vector = await base_vector_task
-    embedding_results = {aid: await task['task'] for aid, task in batch.items()}
+    # 并行获取所有图片的向量
+    try:
+        embedding_results = await async_get_image_embedding(all_image_urls, model)
+    except AiChatException:
+        raise
+    except Exception as e:
+        logger.error(f"图片嵌入计算异常: {e}")
+        raise AiChatException(f"图片嵌入计算异常: {e}")
 
-    # 计算相似度
-    similarity_results = {}
-    async with asyncio.TaskGroup() as tg:
-        for aid, vector in embedding_results.items():
-            logger.info(f"计算图片相似度任务: {aid}")
-            similarity_results[aid] = tg.create_task(
-                    asyncio.to_thread(image_cosine_similarity, base_vector, vector)
-            )
-    similarity_list: list[Similarity] = []
-    for aid, task in similarity_results.items():
-        similarity = Similarity(
-                aid=aid,
-                image_bytes=batch[aid]['similarity'].image_bytes,
-                image_url=batch[aid]['similarity'].image_url,
-                similarity=await task
+    base_vector = embedding_results[0]
+    other_vectors = embedding_results[1:]
+
+    async def compute_similarity(_, vector):
+        return await asyncio.to_thread(image_cosine_similarity, base_vector, vector)
+
+        # ✅ 并发计算相似度，不阻塞
+
+    similarity_tasks = [compute_similarity(image, vector) for image, vector in zip(images.batch, other_vectors)]
+    similarity_values = await asyncio.gather(*similarity_tasks)
+
+    # 组织结果
+    # 组织结果
+    similarity_list = [
+        Similarity(
+                aid=image.aid,
+                image_bytes=image.image_bytes,
+                image_url=image.image_url,
+                similarity=similarity
         )
-        similarity_list.append(similarity)
-        logger.info(f"图片相似度计算完成: {similarity.aid}")
+        for image, similarity in zip(images.batch, similarity_values)
+    ]
 
-    # 构建输出结果
-    data = ImageSimilarityOutBatch(similarity=similarity_list)
-    return data
+    return ImageSimilarityOutBatch(similarity=similarity_list)

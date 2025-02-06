@@ -17,8 +17,8 @@ router = APIRouter(prefix='/image_vector', tags=['图片向量转换'])
         response_model_exclude_none=True
 )
 async def get_image_vector(image_url: ImageVector):
-    vector = await async_get_image_embedding(image_url.image_url)
-    return R.success(data=ImageVectorOut(image_url=image_url.image_url, vector=vector))
+    vector = await async_get_image_embedding([image_url.image_url])
+    return R.success(data=ImageVectorOut(image_url=image_url.image_url, vector=vector[0]))
 
 
 @router.post(
@@ -28,8 +28,8 @@ async def get_image_vector(image_url: ImageVector):
         response_model_exclude_none=True
 )
 async def get_image_vector(image_url: ImageVector):
-    vector = await async_get_image_embedding(image_url.image_url, LargeModelName.google)
-    return R.success(data=ImageVectorOut(image_url=image_url.image_url, vector=vector))
+    vector = await async_get_image_embedding([image_url.image_url], LargeModelName.google)
+    return R.success(data=ImageVectorOut(image_url=image_url.image_url, vector=vector[0]))
 
 
 @router.get('/image_similarity/', summary='图片相似度计算')

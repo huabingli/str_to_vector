@@ -10,11 +10,13 @@
                    2025/2/5:
 -------------------------------------------------
 """
+import asyncio
 import threading
 from abc import ABC, abstractmethod
 from enum import Enum
+from io import BytesIO
 
-import requests
+import httpx
 import torch
 from PIL import Image
 from loguru import logger
@@ -23,7 +25,7 @@ from transformers.modeling_utils import SpecificPreTrainedModelType
 
 from core.config import settings
 from core.exceptions import AiChatException
-from utils.timer import Timer
+from utils.timer import AsyncTimer, Timer
 
 
 class ImageVectorizer(ABC):
@@ -79,42 +81,54 @@ class ImageVectorizer(ABC):
         return cls.processor
 
     @staticmethod
-    @Timer("图片加载")
-    def pull_images(image_url: str):
+    async def fetch_image(session, url):
         try:
-            if image_url.startswith(("http://", "https://")):
-                # raise ValueError("无效的图片 URL，必须以 http:// 或 https:// 开头。")
-                response = requests.get(image_url, stream=True)
-                response.raise_for_status()
-                image_data = response.raw
+            if url.startswith(("http://", "https://")):
+                async with session.get(url) as response:
+                    response.raise_for_status()
+                    image_data = await response.aread()
+                    return await asyncio.to_thread(Image.open, image_data)
             else:
-                image_data = image_url
-                # with open(image_url, 'rb', encoding="UTF-8") as f:
-                #     image_data = f.read()
-            return Image.open(image_data)
+                return await asyncio.to_thread(Image.open, url)
         except Exception as e:
-            raise AiChatException(f'图片加载失败: {e}')
+            logger.error(f'图片加载失败: {url} - {e}')
+            return None  # 失败的图片填充 None
+
+    @staticmethod
+    @AsyncTimer("批量图片加载")
+    async def pull_images_batch(image_urls: list[str]) -> list[Image.Image]:
+        """使用 `aiohttp` 进行异步批量下载并加载图片"""
+
+        async with httpx.AsyncClient() as session:
+            tasks = [ImageVectorizer.fetch_image(session, url) for url in image_urls]
+            images = await asyncio.gather(*tasks)
+
+        return images
 
     @classmethod
-    @Timer("图片转换向量")
-    def get_image_embedding(cls, image_url: str) -> list[float]:
-        image = cls.pull_images(image_url)
+    @AsyncTimer("图片转换向量")
+    async def get_image_embedding(cls, image_urls: list[str]) -> list[float]:
+        """异步加载图片并获取嵌入向量"""
+        images = await cls.pull_images_batch(image_urls)
+        images = [img for img in images if img is not None]  # 过滤掉加载失败的图片
+        if not images:
+            raise AiChatException("所有图片加载失败！")
         processor = cls.get_processor()
         model = cls.get_model()
 
         device = cls.get_device()
-        with torch.no_grad():
-            inputs: BatchEncoding = processor(images=image, return_tensors="pt", padding=True).to(device)
-            # for k, v in inputs.items():
-            #     inputs[k] = v.to(device)
-            # 将输入数据移动到设备
-            image_features: torch.Tensor = model.get_image_features(inputs.pixel_values)
 
-        # 转换为列表
-        vector = image_features.tolist()
-        if not vector or len(vector[0]) == 0:
+        def process_images():
+            with torch.no_grad():
+                inputs = processor(images=images, return_tensors="pt", padding=True).to(device)
+                image_features = model.get_image_features(inputs.pixel_values)
+            return image_features.tolist()
+
+        # ✅ 让计算部分异步执行，不阻塞主线程
+        vector = await asyncio.to_thread(process_images)
+        if not vector or len(vector) == 0:
             raise AiChatException("图片转换向量失败，生成的特征向量为空。")
-        return vector[0]
+        return vector
 
 
 class OpenAIClip(ImageVectorizer):
