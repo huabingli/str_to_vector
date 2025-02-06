@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片上传与相似度展示</title>
+    <style>
+        :root {
+            --thumbnail-size: 100px;
+            --thumbnail-gap: 10px;
+            --border-radius: 5px;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        h1, h2 {
+            text-align: center;
+        }
+
+        form {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        input[type="file"] {
+            margin-bottom: 20px;
+        }
+
+        #previewLibrary, #previewTarget {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--thumbnail-gap);
+            margin-bottom: 20px;
+        }
+
+        .thumbnail {
+            position: relative;
+        }
+
+        .thumbnail img {
+            width: var(--thumbnail-size);
+            height: var(--thumbnail-size);
+            object-fit: cover;
+            border: 1px solid #ccc;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .thumbnail .similarity {
+            font-size: 12px;
+            color: #555;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        .thumbnail .delete-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .note {
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            margin-top: -10px;
+        }
+
+        button[type="submit"] {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+        .radio-group {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1>图片上传与相似度展示</h1>
+<form id="uploadForm">
+    <h2>目标图片</h2>
+    <label for="targetInput">选择目标图片:</label>
+    <input type="file" id="targetInput" accept="image/*">
+    <div id="previewTarget"></div>
+
+    <h2>图片库</h2>
+    <label for="libraryInput">选择图片库:</label>
+    <input type="file" id="libraryInput" accept="image/*" multiple>
+    <div id="previewLibrary"></div>
+    <p class="note">支持截图直接粘贴</p>
+
+    <!-- 新增单选框 -->
+    <div class="radio-group">
+        <label>选择接口：</label>
+        <input type="radio" id="openai" name="api" value="openai" checked>
+        <label for="openai">openai/clip-vit-large-patch14</label>
+        <input type="radio" id="google" name="api" value="google">
+        <label for="google">google/siglip-so400m-patch14-384</label>
+    </div>
+
+    <button type="submit">上传</button>
+</form>
+
+<script>
+    const targetInput = document.getElementById("targetInput");
+    const libraryInput = document.getElementById("libraryInput");
+    const previewTarget = document.getElementById("previewTarget");
+    const previewLibrary = document.getElementById("previewLibrary");
+    const uploadForm = document.getElementById("uploadForm");
+
+    let targetImage = null;
+    let libraryBatch = [];
+
+    function createThumbnail(imageId, imgSrc, similarity = "--") {
+        const thumbnail = document.createElement("div");
+        thumbnail.className = "thumbnail";
+        thumbnail.dataset.id = imageId;
+
+        thumbnail.innerHTML = `
+            <button class="delete-btn" title="删除">×</button>
+            <img src="${imgSrc}" alt="Image">
+            <div class="similarity">相似度: ${similarity}</div>
+        `;
+
+        thumbnail.querySelector(".delete-btn").addEventListener("click", () => {
+            if (thumbnail.parentNode === previewLibrary) {
+                libraryBatch = libraryBatch.filter(item => item.id !== imageId);
+            } else if (thumbnail.parentNode === previewTarget) {
+                targetImage = null;
+            }
+            thumbnail.remove();
+        });
+
+        return thumbnail;
+    }
+
+    function loadImage(file, callback) {
+        const reader = new FileReader();
+        reader.onload = (e) => callback(e.target.result);
+        reader.readAsDataURL(file);
+    }
+
+    targetInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (file && file.size <= 5 * 1024 * 1024 && file.type.startsWith("image/")) {
+            loadImage(file, (src) => {
+                targetImage = {
+                    image_bytes: src.split(",")[1],
+                    id: `target-${Date.now()}`
+                };
+                previewTarget.innerHTML = "";
+                previewTarget.appendChild(createThumbnail(targetImage.id, src));
+            });
+        } else {
+            alert("请选择有效的小于 5MB 的图片！");
+        }
+    });
+
+    libraryInput.addEventListener("change", (event) => {
+        const files = Array.from(event.target.files);
+        files.forEach((file, index) => {
+            if (file.size <= 5 * 1024 * 1024 && file.type.startsWith("image/")) {
+                loadImage(file, (src) => {
+                    const imageId = `library-${Date.now()}-${index}`;
+                    libraryBatch.push({
+                        image_bytes: src.split(",")[1],
+                        id: imageId
+                    });
+                    previewLibrary.appendChild(createThumbnail(imageId, src));
+                });
+            }
+        });
+    });
+
+    document.addEventListener("paste", (event) => {
+        const items = event.clipboardData.items;
+        for (let item of items) {
+            if (item.type.startsWith("image/")) {
+                const file = item.getAsFile();
+                loadImage(file, (src) => {
+                    const imageId = `pasted-${Date.now()}`;
+                    libraryBatch.push({
+                        image_bytes: src.split(",")[1],
+                        id: imageId
+                    });
+                    previewLibrary.appendChild(createThumbnail(imageId, src));
+                });
+            }
+        }
+    });
+
+    async function showLoading(action) {
+        const overlay = document.createElement("div");
+        overlay.style.position = "fixed";
+        overlay.style.top = "0";
+        overlay.style.left = "0";
+        overlay.style.width = "100%";
+        overlay.style.height = "100%";
+        overlay.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+        overlay.style.display = "flex";
+        overlay.style.alignItems = "center";
+        overlay.style.justifyContent = "center";
+        overlay.style.zIndex = "1000";
+        overlay.textContent = "加载中...";
+        document.body.appendChild(overlay);
+
+        try {
+            await action();
+        } finally {
+            document.body.removeChild(overlay);
+        }
+    }
+
+    uploadForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        if (!targetImage || libraryBatch.length === 0) {
+            alert("请同时选择目标图片和图片库！");
+            return;
+        }
+
+        const selectedApi = document.querySelector('input[name="api"]:checked').value;
+        let apiUrl = '';
+
+        if (selectedApi === 'openai') {
+            apiUrl = "{{ base_url }}api/v1/image_vector/image_similarity/";
+        } else if (selectedApi === 'google') {
+            apiUrl = "{{ base_url }}api/v1/image_vector/google/image_similarity/";  // 这里是谷歌接口的 URL，按需要替换
+        }
+
+        await showLoading(async () => {
+            try {
+                const response = await fetch(apiUrl, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        image_bytes: targetImage.image_bytes,
+                        batch: libraryBatch
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    displaySimilarity(result.data.similarity);
+                } else {
+                    const error = await response.json();
+                    alert(`上传失败：${error.message}`);
+                }
+            } catch (error) {
+                alert(`网络错误：${error.message}`);
+            }
+        });
+    });
+
+    function displaySimilarity(similarities) {
+        similarities.forEach((item) => {
+            const thumbnail = document.querySelector(`.thumbnail[data-id="${item.id}"]`);
+            if (thumbnail) {
+                const similarityDiv = thumbnail.querySelector(".similarity");
+                similarityDiv.textContent = `相似度: ${(item.similarity * 100).toFixed(2)}%`;
+            } else {
+                console.warn(`未找到 ID 为 ${item.id} 的图片`);
+            }
+        });
+    }
+
+    // 点击图片放大功能
+    document.body.addEventListener("click", (event) => {
+        if (event.target.tagName === "IMG") {
+            const imgSrc = event.target.src;
+            const overlay = document.createElement("div");
+            overlay.style.position = "fixed";
+            overlay.style.top = "0";
+            overlay.style.left = "0";
+            overlay.style.width = "100%";
+            overlay.style.height = "100%";
+            overlay.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+            overlay.style.display = "flex";
+            overlay.style.alignItems = "center";
+            overlay.style.justifyContent = "center";
+            overlay.style.zIndex = "1000";
+
+            const largeImg = document.createElement("img");
+            largeImg.src = imgSrc;
+            largeImg.style.maxWidth = "90%";
+            largeImg.style.maxHeight = "90%";
+            largeImg.style.border = "5px solid white";
+
+            overlay.appendChild(largeImg);
+            document.body.appendChild(overlay);
+
+            overlay.addEventListener("click", () => {
+                document.body.removeChild(overlay);
+            });
+        }
+    });
+
+</script>
+</body>
+</html>

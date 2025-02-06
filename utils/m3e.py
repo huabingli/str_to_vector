@@ -60,7 +60,6 @@ class GetM3eModel:
                     device=cls.get_device(),
                     model_kwargs={'torch_dtype': torch.float32}
             )
-            logger.info(f"Model loaded from {cls.model}")
         return cls.model
 
     @classmethod

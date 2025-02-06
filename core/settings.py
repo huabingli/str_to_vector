@@ -19,6 +19,24 @@ class M3e(BaseModel):
     )
 
 
+class OpenaiClip(BaseModel):
+    name_or_path: Optional[str] = Field(
+            'openai/clip-vit-large-patch14',
+            # 'openai/clip-vit-base-patch16',
+            alias='model_name_or_path',
+            description="openai图像模型 https://huggingface.co/openai/clip-vit-large-patch14"
+    )
+
+
+class GoogleClip(BaseModel):
+    name_or_path: Optional[str] = Field(
+            'google/siglip-so400m-patch14-384',
+            # 'openai/clip-vit-base-patch16',
+            alias='model_name_or_path',
+            description="openai图像模型 https://huggingface.co/google/siglip-so400m-patch14-384"
+    )
+
+
 class Base(BaseSettings):
     model_config = SettingsConfigDict(env_nested_delimiter='__', env_file=None)
 
@@ -45,3 +63,5 @@ class Base(BaseSettings):
 
 class Settings(Base):
     m3e: M3e = M3e()
+    openai_clip: OpenaiClip = OpenaiClip()
+    google_clip: GoogleClip = GoogleClip()

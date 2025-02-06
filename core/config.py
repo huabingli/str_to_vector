@@ -6,9 +6,12 @@
 # @说明       :
 from contextvars import ContextVar
 
+from starlette.templating import Jinja2Templates
+
 from .settings import Settings
 
 settings = Settings()
 request_id_var: ContextVar[str] = ContextVar("request-id", default="")
+templates = Jinja2Templates(directory="templates")
 
 request_time_it_var: ContextVar[str] = ContextVar('process-time', default="")
