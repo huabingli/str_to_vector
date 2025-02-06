@@ -109,6 +109,10 @@
         button[type="submit"]:hover {
             background-color: #0056b3;
         }
+
+        .radio-group {
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -124,6 +128,15 @@
     <input type="file" id="libraryInput" accept="image/*" multiple>
     <div id="previewLibrary"></div>
     <p class="note">支持截图直接粘贴</p>
+
+    <!-- 新增单选框 -->
+    <div class="radio-group">
+        <label>选择接口：</label>
+        <input type="radio" id="openai" name="api" value="openai" checked>
+        <label for="openai">openai/clip-vit-large-patch14</label>
+        <input type="radio" id="google" name="api" value="google">
+        <label for="google">google/siglip-so400m-patch14-384</label>
+    </div>
 
     <button type="submit">上传</button>
 </form>
@@ -246,9 +259,18 @@
             return;
         }
 
+        const selectedApi = document.querySelector('input[name="api"]:checked').value;
+        let apiUrl = '';
+
+        if (selectedApi === 'openai') {
+            apiUrl = "{{ base_url }}api/v1/image_vector/image_similarity/";
+        } else if (selectedApi === 'google') {
+            apiUrl = "{{ base_url }}api/v1/image_vector/google/image_similarity/";  // 这里是谷歌接口的 URL，按需要替换
+        }
+
         await showLoading(async () => {
             try {
-                const response = await fetch("{{ base_url }}api/v1/image_vector/image_similarity/", {
+                const response = await fetch(apiUrl, {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
                     body: JSON.stringify({

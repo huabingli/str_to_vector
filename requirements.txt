@@ -12,3 +12,5 @@ scikit-learn~=1.5.1
 jieba~=0.42.1
 pydantic-settings~=2.3.4
 sentence-transformers~=3.0.1
+sentencepiece~=0.2.0
+protobuf~=5.29.3
