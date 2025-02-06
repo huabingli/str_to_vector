@@ -6,6 +6,7 @@
 # @说明       :
 import asyncio
 import re
+import threading
 import time
 from functools import lru_cache
 
@@ -51,15 +52,18 @@ def escape_chars(s):
 class GetM3eModel:
     model: SentenceTransformer = None
     device: str = None
+    lock = threading.Lock()  # 添加锁
 
     @classmethod
     def get_model(cls) -> SentenceTransformer:
         if cls.model is None:
-            cls.model = SentenceTransformer(
-                    settings.m3e.name_or_path,
-                    device=cls.get_device(),
-                    model_kwargs={'torch_dtype': torch.float32}
-            )
+            with cls.lock:
+                if cls.model is None:
+                    cls.model = SentenceTransformer(
+                            settings.m3e.name_or_path,
+                            device=cls.get_device(),
+                            model_kwargs={'torch_dtype': torch.float32}
+                    )
         return cls.model
 
     @classmethod

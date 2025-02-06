@@ -11,7 +11,7 @@ ARG APP_PATH=/data
 
 COPY ./ ${APP_PATH}/str_to_vector
 
-WORKDIR ${APP_PATH}
+WORKDIR /data/str_to_vector
 
 EXPOSE 8000
 
