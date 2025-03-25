@@ -11,16 +11,18 @@ from contextlib import asynccontextmanager
 import jieba
 from fastapi import FastAPI
 
-from utils.images_vector.model_factory import OpenAIClip, GoogleClip
 from utils.m3e import GetM3eModel
+
+
+# from utils.images_vector.model_factory import OpenAIClip, GoogleClip
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     with concurrent.futures.ThreadPoolExecutor() as executor:
         executor.submit(GetM3eModel.start_model)
-        executor.submit(OpenAIClip.initialize_model)
-        executor.submit(GoogleClip.initialize_model)
+        # executor.submit(OpenAIClip.initialize_model)
+        # executor.submit(GoogleClip.initialize_model)
     # OpenAIClip.initialize_model()
     # GoogleClip.initialize_model()
     if os.name != 'nt':
