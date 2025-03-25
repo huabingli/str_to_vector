@@ -63,7 +63,8 @@ class ImageVectorizer(ABC):
             with cls.lock:
                 if cls.model is None:  # 内部检查，防止多个线程竞争
                     model_path = cls.get_model_path()
-                    cls.model = AutoModelForZeroShotImageClassification.from_pretrained(model_path)
+                    cls.model = AutoModelForZeroShotImageClassification.from_pretrained(model_path,
+                                                                                        torch_dtype=torch.float32)
                     cls.model.to(cls.get_device())
         return cls.model
 
