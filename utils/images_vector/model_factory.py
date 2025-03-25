@@ -11,21 +11,22 @@
 -------------------------------------------------
 """
 import asyncio
+import io
 import threading
 from abc import ABC, abstractmethod
 from enum import Enum
-from io import BytesIO
 
 import httpx
 import torch
 from PIL import Image
+from httpx import AsyncClient
 from loguru import logger
-from transformers import AutoModelForZeroShotImageClassification, AutoProcessor, BatchEncoding
+from transformers import AutoModelForZeroShotImageClassification, AutoProcessor
 from transformers.modeling_utils import SpecificPreTrainedModelType
 
 from core.config import settings
 from core.exceptions import AiChatException
-from utils.timer import AsyncTimer, Timer
+from utils.timer import AsyncTimer
 
 
 class ImageVectorizer(ABC):
@@ -81,13 +82,12 @@ class ImageVectorizer(ABC):
         return cls.processor
 
     @staticmethod
-    async def fetch_image(session, url):
+    async def fetch_image(session: AsyncClient, url):
         try:
             if url.startswith(("http://", "https://")):
-                async with session.get(url) as response:
-                    response.raise_for_status()
-                    image_data = await response.aread()
-                    return await asyncio.to_thread(Image.open, image_data)
+                async with session.stream('GET', url) as response:
+                    data = await response.aread()
+                    return await asyncio.to_thread(Image.open, io.BytesIO(data))
             else:
                 return await asyncio.to_thread(Image.open, url)
         except Exception as e:

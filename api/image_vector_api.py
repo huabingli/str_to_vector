@@ -11,14 +11,15 @@ router = APIRouter(prefix='/image_vector', tags=['图片向量转换'])
 
 
 @router.post(
-        '/',
+        '/openai/',
         summary='openapi图片转向量',
         response_model=R[ImageVectorOut],
         response_model_exclude_none=True
 )
 async def get_image_vector(image_url: ImageVector):
     vector = await async_get_image_embedding([image_url.image_url])
-    return R.success(data=ImageVectorOut(image_url=image_url.image_url, vector=vector[0]))
+    data = ImageVectorOut(vector=vector[0], **image_url.model_dump(exclude_unset=True))
+    return R.success(data=data)
 
 
 @router.post(
@@ -29,7 +30,8 @@ async def get_image_vector(image_url: ImageVector):
 )
 async def get_image_vector(image_url: ImageVector):
     vector = await async_get_image_embedding([image_url.image_url], LargeModelName.google)
-    return R.success(data=ImageVectorOut(image_url=image_url.image_url, vector=vector[0]))
+    data = ImageVectorOut(vector=vector[0], **image_url.model_dump(exclude_unset=True))
+    return R.success(data=data)
 
 
 @router.get('/image_similarity/', summary='图片相似度计算')
