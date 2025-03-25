@@ -19,7 +19,7 @@ class M3e(BaseModel):
     )
 
 
-class OpenaiClip(BaseModel):
+class Clip(BaseModel):
     name_or_path: Optional[str] = Field(
             'openai/clip-vit-large-patch14',
             # 'openai/clip-vit-base-patch16',
@@ -28,13 +28,13 @@ class OpenaiClip(BaseModel):
     )
 
 
-class GoogleClip(BaseModel):
-    name_or_path: Optional[str] = Field(
-            'google/siglip-so400m-patch14-384',
-            # 'openai/clip-vit-base-patch16',
-            alias='model_name_or_path',
-            description="openai图像模型 https://huggingface.co/google/siglip-so400m-patch14-384"
-    )
+# class GoogleClip(BaseModel):
+#     name_or_path: Optional[str] = Field(
+#             'google/siglip-so400m-patch14-384',
+#             # 'openai/clip-vit-base-patch16',
+#             alias='model_name_or_path',
+#             description="openai图像模型 https://huggingface.co/google/siglip-so400m-patch14-384"
+#     )
 
 
 class Base(BaseSettings):
@@ -63,5 +63,20 @@ class Base(BaseSettings):
 
 class Settings(Base):
     m3e: M3e = M3e()
-    openai_clip: OpenaiClip = OpenaiClip()
-    google_clip: GoogleClip = GoogleClip()
+    openai_clip: Clip = Clip(model_name_or_path='openai/clip-vit-large-patch14')
+    google_clip: Clip = Clip(model_name_or_path='google/siglip-so400m-patch14-384')
+
+    # 服务提供商配置
+    default_provider: Literal['openai', 'google'] = Field(
+            'openai',
+            description='默认使用的AI服务提供商（openai/google）'
+    )
+
+    @property
+    def current_client(self) -> Clip:
+        if self.default_provider == 'openai':
+            return self.openai_clip
+        elif self.default_provider == 'google':
+            return self.google_clip
+        else:
+            raise ValueError('Invalid default_provider value')

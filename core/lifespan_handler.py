@@ -8,30 +8,16 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from utils.images_vector.model_factory import GoogleClip
+from core.config import settings
+from utils.images_vector.model_factory import GoogleClip, OpenAIClip
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # with concurrent.futures.ThreadPoolExecutor() as executor:
-    #     executor.submit(GetM3eModel.start_model),
-    #     executor.submit(OpenAIClip.initialize_model),
-    #     executor.submit(GoogleClip.initialize_model)
-    #
-    #     for future in concurrent.futures.as_completed(futures):
-    #         try:
-    #             result = future.result()  # 获取任务结果，若有异常会在这里抛出
-    #             print("模型启动成功:", result)
-    #         except Exception as e:
-    #             print(f"模型初始化失败: {e}")
-    # OpenAIClip.initialize_model()
-    # GoogleClip.initialize_model()
-    # GetM3eModel.start_model()
-    # OpenAIClip.initialize_model()
-    GoogleClip.initialize_model()
-    # if os.name != 'nt':
-    #     jieba.enable_parallel(4)
-    # jieba.initialize()  # 手动初始化（可选）
+    if settings.default_provider == 'google':
+        GoogleClip.initialize_model()
+    elif settings.default_provider == 'openai':
+        OpenAIClip.initialize_model()
     yield
-    # if os.name != 'nt':
-    #     jieba.disable_parallel()
+    await GoogleClip.close_httpx()
+    await OpenAIClip.close_httpx()
