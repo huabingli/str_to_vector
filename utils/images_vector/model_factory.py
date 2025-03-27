@@ -57,6 +57,9 @@ class ImageVectorizer(ABC):
                                     max_keepalive_connections=50,
                                     max_connections=100
                             ),
+                            headers={
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+                            }
                     )
         return cls._httpx_client
 
