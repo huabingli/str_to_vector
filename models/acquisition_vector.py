@@ -4,7 +4,7 @@
 # @时间       : 2023/12/25 9:22
 # @作者       : lihb
 # @说明       :
-from typing import Union
+from typing import Literal, Union
 
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
@@ -13,7 +13,8 @@ from core.exceptions import AiChatException
 
 
 class AcquisitionVector(BaseModel):
-    article: Union[str, int, float] = Field(..., description="文章")
+    article: str| int| float = Field(..., description="文章")
+    vector_precision: Literal["float32", "int8"] = Field("float32", description="向量精度")
 
     @field_validator("article", mode='before')
     @classmethod
@@ -28,7 +29,7 @@ class AcquisitionVector(BaseModel):
 
 
 class AcquisitionVectorOut(AcquisitionVector):
-    vector: list[float] = Field(..., description="向量")
+    vector: list[float | int] = Field(..., description="向量")
 
 
 class AcquisitionVector2(AcquisitionVector):
@@ -36,5 +37,5 @@ class AcquisitionVector2(AcquisitionVector):
 
 
 class AcquisitionVectorOutBatch(BaseModel):
-    vector: list[float] = Field([], description="向量")
+    vector: list[float | int] = Field([], description="向量")
     data_id: str | int = Field(..., description="文章ID")

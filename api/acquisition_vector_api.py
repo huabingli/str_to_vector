@@ -23,8 +23,8 @@ router = APIRouter(prefix='/acquisition_vector', tags=['向量转换'])
 )
 async def get_acquisition_vector(article: AcquisitionVector):
     # vector = await asyncio.to_thread(embedding_one_article_no_cache, article.article)
-    vector = await embedding_one_article(article.article)
-    return R.success(data=AcquisitionVectorOut(vector=vector, article=article.article))
+    vector = await embedding_one_article(article)
+    return R.success(data=AcquisitionVectorOut(vector=vector, article=article.article, vector_precision=article.vector_precision))
 
 
 @router.post(
