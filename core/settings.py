@@ -13,7 +13,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class M3e(BaseModel):
     name_or_path: Optional[str] = Field(
-            r'D:\PycharmProjects\moka-ai_m3e-base',
+            # r'D:\PycharmProjects\moka-ai_m3e-base',
+            r'D:\data\BAAI-bge-m3',
             alias='model_name_or_path',
             description="m3e模型的目录"
     )
