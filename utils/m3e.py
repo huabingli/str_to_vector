@@ -132,8 +132,10 @@ def model_encode(
     encode_precision: Literal[
         "float32", "int8", "uint8", "binary", "ubinary"] = 'float32' if precision == 'int8' else precision
 
-    # 获取模型实例并进行编码
-    embeddings: np.ndarray = model.encode(article, device=device, precision=encode_precision)
+    # # 禁用梯度计算 + 降低内存压力
+    with torch.no_grad():
+        # 获取模型实例并进行编码
+        embeddings: np.ndarray = model.encode(article, device=device, precision=encode_precision, batch_size=10)
 
     logger.debug(f"转换vector 耗时: {(time.time() - start_time) :.5f}s ")
     # 将编码结果转换为字符串类型，再转换为float32类型，返回第一个元素
